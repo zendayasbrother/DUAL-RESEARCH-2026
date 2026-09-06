@@ -263,7 +263,7 @@ class DataEngine:
             print("Warning: 'hfce' column missing. Skipping Energy Equity Gap analysis.")
             return None
         
-        # Built actual definitions and the actual EES for Symbolic Regression to reference then derive a formula for - the features array below
+        # Built actual definitions and the actual EES driven by PCA
         # stability_ratio is used as a fallback target if stability_ratio is not available, ensuring the model can still be trained.
         
         target_col = 'hfce' if 'hfce' in self.df.columns else 'stability_ratio' 
@@ -272,54 +272,13 @@ class DataEngine:
         active_features = [col for col in features if col in self.df.columns and col != target_col]
         self.feature_names = active_features  # Store feature names for later use in parse_sr()
         
-        # Ensure columns exist and drop NaNs
+        # Ensure columns exist and drop NaNs then start the ML
         req_cols = active_features + [target_col]
         valid_df = self.df.dropna(subset=req_cols).copy()
         if valid_df.empty:
             print("Warning: No valid data available for Symbolic Regression analysis.")
             return None
 
-        X = valid_df[active_features].values
-        Y = valid_df[target_col].values
-        
-        # Running Symbolic Regression to derive dynamic formula
-        sr = SymbolicRegressor(
-            population_size=300, # Keep population size moderate to accommodate to db size x future dashboard lag
-            generations=350, # Generations repeats the evolution process to refine the model
-            max_samples=0.8,
-            init_depth=(2,5),        # shorten range of formula depth for ux
-            function_set=['add', 'sub', 'mul', 'div', 'log'], # operational limits for user experience (+. -, x, /)
-            parsimony_coefficient=0.005,
-            random_state=42 # reproducibility of results  
-        )
-        sr.fit(X, Y)
-
-        # Applying derived SR expression to compute Energy Equity Score
-        valid_df['ees_score'] = sr.predict(X)
-        
-        # further extend and perform symbolic regression to fully encapsulate Energy Equity rather than Currency Stability Ratio (CSR) as a proxy for EES
-
-        # Compute Trilateral Score Gap (China vs Nigeria/Ghana - ESS)
-        chn_score = valid_df[valid_df['iso'] == 'CHN']['ees_score'].mean()
-        nga_score = valid_df[valid_df['iso'] == 'NGA']['ees_score'].mean()
-        gha_score = valid_df[valid_df['iso'] == 'GHA']['ees_score'].mean() # Energy Equity Score (EES) is averaged
-
-        parsed_sr = self.parse_sr(sr._program)
-        
-        gap_results = {
-            'SR_Formula': parsed_sr if parsed_sr is not None else "Parsing failed",
-            'CHN_Score': round(float(chn_score), 4),
-            'NGA_Score': round(float(nga_score), 4),
-            'GHA_Score': round(float(gha_score), 4),
-            'China_WestAfrica_Gap': round(float(chn_score - np.nanmean([nga_score, gha_score])), 5)
-        }
-        
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(valid_df[active_features]) # fit and transformed in accordance to features
-
-        df_scaled = pd.DataFrame(X_scaled, columns=active_features, index=valid_df.index) # converted numpy array back to DataFrame for easier downstream processing and visualization
-        
-        # test Stability Score before transferring to speartests()
 
         return gap_results, df_scaled
     
