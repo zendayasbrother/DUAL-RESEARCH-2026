@@ -243,7 +243,7 @@ class DataEngine:
                 results[f'Stability Ratio - Inflation : Exchange Rate ({iso})'] = (None)
                 
             # Stability Score: derived from Symbolic Regression (SR) and OLS regression (inflation / log(inflation * primaryvalue))
-            stability_score = subset['inflation'] / (np.log['inflation'] + np.log['primaryvalue'])
+            stability_score = subset['inflation'] / (np.log(subset['inflation'] * subset['primaryvalue']).replace([np.inf, -np.inf], np.nan))
             net_ssc = stability_score - iso_stability_mean
             print(f'Net Stability Score - Inflation : Exchange Rate ({iso}): {net_ssc:.4f}')
             results[f'Net Stability Score - Inflation : Exchange Rate ({iso})'] = round(net_ssc, 4)
@@ -319,7 +319,7 @@ class DataEngine:
         
         # test Stability Score before transferring to speartests()
 
-        return gap_results
+        return gap_results, df_scaled
     
     def parse_sr(self, sr_expression):
         # Convert the symbolic regression expression to a string based sympy expression
