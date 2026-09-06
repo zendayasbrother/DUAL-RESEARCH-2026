@@ -298,7 +298,7 @@ class DataEngine:
         parsed_sr = self.parse_sr(sr._program)
         
         gap_results = {
-            'SR_Formula': str(parsed_sr) if parsed_sr is not None else "Parsing failed",
+            'SR_Formula': parsed_sr if parsed_sr is not None else "Parsing failed",
             'CHN_Score': round(float(chn_score), 4),
             'NGA_Score': round(float(nga_score), 4),
             'GHA_Score': round(float(gha_score), 4),
@@ -309,6 +309,8 @@ class DataEngine:
         X_scaled = scaler.fit_transform(features) # fit and transformed in accordance to features
 
         df_scaled = pd.DataFrame(X_scaled, columns=features) # converted numpy array back to DataFrame for easier downstream processing and visualization
+        
+        # test Stability Score before transferring to speartests()
 
         return gap_results, df_scaled
     
