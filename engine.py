@@ -141,7 +141,7 @@ class DataEngine:
         if df.empty:
             return None
        
-        energy_cols = [c for c in df.columns if any(x in c for x in ['primaryvalue', 'qty', 'fobvalue', 'cifvalue'])]
+        energy_cols = [c for c in df.columns if any(x in c for x in ['primaryvalue', 'qty', 'fobvalue', 'netwgt', 'cifvalue'])]
         macro_cols = ['inflation', 'exchange_rate', 'hfce']
         target_cols = [col for col in macro_cols if col in df.columns]
         
@@ -194,15 +194,15 @@ class DataEngine:
             results[f'Spearman - Primary Value vs Exchange Rate ({iso}): '] = round(val, 4)
         
         # coefficient variation calculations
-            exchange = subset['exchange_rate']
+            net_wgt = subset['netwgt'] 
             qty_ratio = subset['qty_ratio'] # derived value
-            if exchange.empty:
+            if net_wgt.empty:
                 results[f'Coefficient of Variation - Exchange Rate ({iso}): '] = None
                 print(f"Warning: Exchange rate data for {iso} is insufficient for CV calculation.")
             else:
-                var = (qty_ratio.std() / exchange.mean()) * 100
-                print(f"Coefficient of Variation - Qty Ratio + Exchange Rate ({iso}): {var:.4f}")
-                results[f'Coefficient of Variation - Qty Ratio + Exchange Rate ({iso}): '] = round(var, 4)
+                var = (qty_ratio.std() / net_wgt.mean()) * 100
+                print(f"Coefficient of Variation - Qty Ratio + Net Weight ({iso}): {var:.4f}")
+                results[f'Coefficient of Variation - Qty Ratio + Net Weight ({iso}): '] = round(var, 4)
 
             
             # elasticity calculations via log-log regression
@@ -241,6 +241,12 @@ class DataEngine:
             else:
                 print(f'Warning: Required columns for Stability Ratio calculation are missing for {iso}.')
                 results[f'Stability Ratio - Inflation : Exchange Rate ({iso})'] = (None)
+                
+            # Stability Score: derived from Symbolic Regression (SR) and OLS regression (inflation / log(inflation * primaryvalue))
+            stability_score = subset['inflation'] / (np.log['inflation'] + np.log['primaryvalue'])
+            net_ssc = stability_score - iso_stability_mean
+            print(f'Net Stability Score - Inflation : Exchange Rate ({iso}): {net_ssc:.4f}')
+            results[f'Net Stability Score - Inflation : Exchange Rate ({iso})'] = round(net_ssc, 4)
                     
 
         return results
@@ -255,13 +261,14 @@ class DataEngine:
             print("Warning: 'hfce' column missing. Skipping Energy Equity Gap analysis.")
             return None
         
-        # Built actual definitions and the actual EES for SR to reference then derive a formula for - the features array below
-        # inflation is used as a fallback target if stability_ratio is not available, ensuring the model can still be trained.
+        # Built actual definitions and the actual EES for Symbolic Regression to reference then derive a formula for - the features array below
+        # stability_ratio is used as a fallback target if stability_ratio is not available, ensuring the model can still be trained.
         
-        target_col = 'stability_ratio' if 'stability_ratio' in self.df.columns else 'inflation' 
+        target_col = 'hfce' if 'hfce' in self.df.columns else 'stability_ratio' 
         
-        features = ['primaryvalue', 'qty_ratio', 'hfce', 'inflation'] # Feature engineering finding detrived HFCE backed formula
+        features = ['primaryvalue', 'qty_ratio', 'stability_ratio', 'inflation'] # Feature engineering finding detrived HFCE backed formula
         active_features = [col for col in features if col in self.df.columns and col != target_col]
+        self.feature_names = active_features  # Store feature names for later use in parse_sr()
         
         # Ensure columns exist and drop NaNs
         req_cols = active_features + [target_col]
@@ -286,14 +293,14 @@ class DataEngine:
         sr.fit(X, Y)
 
         # Applying derived SR expression to compute Energy Equity Score
-        valid_df['stability_score'] = sr.predict(X)
+        valid_df['ees_score'] = sr.predict(X)
         
         # further extend and perform symbolic regression to fully encapsulate Energy Equity rather than Currency Stability Ratio (CSR) as a proxy for EES
 
         # Compute Trilateral Score Gap (China vs Nigeria/Ghana - ESS)
-        chn_score = valid_df[valid_df['iso'] == 'CHN']['stability_score'].mean()
-        nga_score = valid_df[valid_df['iso'] == 'NGA']['stability_score'].mean()
-        gha_score = valid_df[valid_df['iso'] == 'GHA']['stability_score'].mean() # StS will be a placeholder for EES; continue
+        chn_score = valid_df[valid_df['iso'] == 'CHN']['ees_score'].mean()
+        nga_score = valid_df[valid_df['iso'] == 'NGA']['ees_score'].mean()
+        gha_score = valid_df[valid_df['iso'] == 'GHA']['ees_score'].mean() # Energy Equity Score (EES) is averaged
 
         parsed_sr = self.parse_sr(sr._program)
         
@@ -306,13 +313,13 @@ class DataEngine:
         }
         
         scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(features) # fit and transformed in accordance to features
+        X_scaled = scaler.fit_transform(valid_df[active_features]) # fit and transformed in accordance to features
 
-        df_scaled = pd.DataFrame(X_scaled, columns=features) # converted numpy array back to DataFrame for easier downstream processing and visualization
+        df_scaled = pd.DataFrame(X_scaled, columns=active_features, index=valid_df.index) # converted numpy array back to DataFrame for easier downstream processing and visualization
         
         # test Stability Score before transferring to speartests()
 
-        return gap_results, df_scaled
+        return gap_results
     
     def parse_sr(self, sr_expression):
         # Convert the symbolic regression expression to a string based sympy expression

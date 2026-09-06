@@ -15,9 +15,9 @@ import warnings
 warnings.filterwarnings('ignore')
 
 class ECModels:
-    def __init__(self, df, df_scaled=None):
+    def __init__(self, df, df_scaled):
         self.df = df
-        self.scaled = df_scaled
+        self.scaled = df_scaled # maybe combine the scaled df with the original df to avoid losing any data during scaling
 
     
     def run_pca(self, n_components=2):
@@ -47,14 +47,14 @@ class ECModels:
         
         Y_pred = model.predict(X_test)
         
-        results = {
+        pca_results = {
             'pca_model': pca,
             'regression_model': model,
             'components': pca.components_,
             'explained_variance': pca.explained_variance_ratio_ # rest of results are in the LR func
         }
         
-        return results
+        return pca_results
         
     def run_linear_regression(self):
         if self.df is None or self.df.empty:
