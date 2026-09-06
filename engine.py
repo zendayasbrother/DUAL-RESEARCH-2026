@@ -268,7 +268,7 @@ class DataEngine:
         
         target_col = 'hfce' if 'hfce' in self.df.columns else 'stability_ratio' 
         
-        features = ['primaryvalue', 'qty_ratio', 'stability_ratio', 'inflation'] # Feature engineering finding detrived HFCE backed formula
+        features = ['primaryvalue', 'qty_ratio', 'hfce', 'exchange_rate', 'inflation', 'netwgt'] # Feature engineering finding detrived HFCE backed formula
         active_features = [col for col in features if col in self.df.columns and col != target_col]
         self.feature_names = active_features  # Store feature names for later use in parse_sr()
         
