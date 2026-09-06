@@ -12,4 +12,28 @@ Contains an ETL pushing API information into a PGSQL database, then performs sta
 
 PCA continued, then Linear Regression with a prediction
 
+Aim:
+
+UNCOMTRADE
+     ↓
+DBnomics / WBG
+     ↓
+Python ETL
+     ↓
+PostgreSQL
+     ↓
+Analytical Engine
+     ↓
+ ┌───┴────────┐
+ ↓            ↓
+Statistics   ML
+ ↓            ↓
+ └────┬───────┘
+      ↓
+Scenario / Game Theory
+      ↓
+Plotly / Streamlit
+      ↓
+Cloudflare Website
+
 Future culmination with a simpler, preceding EDA and Visualisation project into a CLouflare and AWS hostred website via a JSON / API bridge
