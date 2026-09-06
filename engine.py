@@ -196,7 +196,7 @@ class DataEngine:
         # coefficient variation calculations
             net_wgt = subset['netwgt'] 
             qty_ratio = subset['qty_ratio'] # derived value
-            if net_wgt.empty:
+            if net_wgt.dropna().empty:
                 results[f'Coefficient of Variation - Exchange Rate ({iso}): '] = None
                 print(f"Warning: Exchange rate data for {iso} is insufficient for CV calculation.")
             else:
@@ -243,10 +243,12 @@ class DataEngine:
                 results[f'Stability Ratio - Inflation : Exchange Rate ({iso})'] = (None)
                 
             # Stability Score: derived from Symbolic Regression (SR) and OLS regression (inflation / log(inflation * primaryvalue))
-            stability_score = subset['inflation'] / (np.log(subset['inflation'] * subset['primaryvalue']).replace([np.inf, -np.inf], np.nan))
+            log_infl = np.log(subset['inflation']).replace([np.inf, -np.inf], np.nan)
+            log_pv = np.log(subset['primaryvalue']).replace([np.inf, -np.inf], np.nan)
+            stability_score = inflation / (log_infl + log_pv)
             net_ssc = stability_score - iso_stability_mean
-            print(f'Net Stability Score - Inflation : Exchange Rate ({iso}): {net_ssc:.4f}')
-            results[f'Net Stability Score - Inflation : Exchange Rate ({iso})'] = round(net_ssc, 4)
+            print(f'Avg Net Stability Score - Inflation : Exchange Rate ({iso}): {net_ssc.mean():.4f}')
+            results[f'Net Stability Score - Inflation : Exchange Rate ({iso})'] = round(net_ssc.mean(), 4)
                     
 
         return results
