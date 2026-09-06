@@ -8,4 +8,8 @@ Dataset: API driven UNComtrade data, DBNomics
 
 Tech Stack: Python, SQL, NashPy, SKlearn, Stats Model (data cleaning, intro / intermediate statistics + game theory, ML models)
 
+Contains an ETL pushing API information into a PGSQL database, then performs statistical calculations. Tried Symbolic regression to find the formula. Ended up doing a PCA driven approach.
+
+PCA continued, then Linear Regression with a prediction
+
 Future culmination with a simpler, preceding EDA and Visualisation project into a CLouflare and AWS hostred website via a JSON / API bridge

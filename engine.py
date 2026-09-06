@@ -196,16 +196,16 @@ class DataEngine:
         # coefficient variation calculations
             net_wgt = subset['netwgt'] 
             qty_ratio = subset['qty_ratio'] # derived value
-            if net_wgt.dropna().empty:
+            if qty_ratio.dropna().empty:
                 results[f'Coefficient of Variation - Exchange Rate ({iso}): '] = None
                 print(f"Warning: Exchange rate data for {iso} is insufficient for CV calculation.")
             else:
-                var = (qty_ratio.std() / net_wgt.mean()) * 100
+                var = (qty_ratio.std() / qty_ratio.mean()) * 100
                 print(f"Coefficient of Variation - Qty Ratio + Net Weight ({iso}): {var:.4f}")
                 results[f'Coefficient of Variation - Qty Ratio + Net Weight ({iso}): '] = round(var, 4)
 
             
-            # elasticity calculations via log-log regression
+            # elasticity calculation
             inflation = subset['inflation']
             qty_pct = qty_ratio.pct_change()
 
@@ -213,16 +213,7 @@ class DataEngine:
                 results[f'Elasticity - Quantity vs Inflation ({iso}): '] = None
                 print(f"Warning: Inflation data for {iso} is insufficient for elasticity calculation.")
             else:
-                df_log = pd.DataFrame({
-                    'y': np.log(qty_pct + 1), 
-                    'x': np.log(inflation + 1)
-                }).replace([np.inf, -np.inf], np.nan).dropna() # aligned log features and drop invalid/inf rows
-
-                
-                if len(df_log) > 1 and df_log['x'].var() > 0:
-                    elast_final = np.polyfit(df_log['x'], df_log['y'], deg=1)[0] # creates a linear (fit +) regression model and returns the slope (elasticity)
-                else:
-                    elast_final = 0.0 # Calculating true log-log regression slope (OLS) instead of point division
+                elast_final = (qty_pct / inflation).mean()
 
                 print(f"Elasticity - Quantity vs Inflation ({iso}): {elast_final:.4f}") # fix elasticity with log-log regression
                 results[f'Elasticity - Quantity vs Inflation ({iso}): '] = round(elast_final, 4)
@@ -242,19 +233,13 @@ class DataEngine:
                 print(f'Warning: Required columns for Stability Ratio calculation are missing for {iso}.')
                 results[f'Stability Ratio - Inflation : Exchange Rate ({iso})'] = (None)
                 
-            # Stability Score: derived from Symbolic Regression (SR) and OLS regression (inflation / log(inflation * primaryvalue))
-            log_infl = np.log(subset['inflation']).replace([np.inf, -np.inf], np.nan)
-            log_pv = np.log(subset['primaryvalue']).replace([np.inf, -np.inf], np.nan)
-            stability_score = inflation / (log_infl + log_pv)
-            net_ssc = stability_score - iso_stability_mean
-            print(f'Net Stability Score - ({iso}): {net_ssc.mean():.4f}')
-            results[f'Net Stability Score - ({iso})'] = round(net_ssc.mean(), 4)
+            # Stability Score - hopefully derived from Stability Ratio and PCA
                     
 
         return results
     # END OF FIRST HALF 
 
- # Calculations - guided with Symbolic Regression + OLS
+ # Calculations - guided with PCA + OLS
  
  # Energy Equity Score Gap (consumer spending + energy value(s) as key inds)
     def energy_equity_gap(self):
@@ -268,7 +253,7 @@ class DataEngine:
         
         target_col = 'hfce' if 'hfce' in self.df.columns else 'stability_ratio' 
         
-        features = ['primaryvalue', 'qty_ratio', 'hfce', 'exchange_rate', 'inflation', 'netwgt'] # Feature engineering finding detrived HFCE backed formula
+        features = [] # Feature engineering finding detrived HFCE backed formula
         active_features = [col for col in features if col in self.df.columns and col != target_col]
         self.feature_names = active_features  # Store feature names for later use in parse_sr()
         
