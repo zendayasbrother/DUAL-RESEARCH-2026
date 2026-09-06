@@ -247,8 +247,8 @@ class DataEngine:
             log_pv = np.log(subset['primaryvalue']).replace([np.inf, -np.inf], np.nan)
             stability_score = inflation / (log_infl + log_pv)
             net_ssc = stability_score - iso_stability_mean
-            print(f'Avg Net Stability Score - Inflation : Exchange Rate ({iso}): {net_ssc.mean():.4f}')
-            results[f'Net Stability Score - Inflation : Exchange Rate ({iso})'] = round(net_ssc.mean(), 4)
+            print(f'Net Stability Score - ({iso}): {net_ssc.mean():.4f}')
+            results[f'Net Stability Score - ({iso})'] = round(net_ssc.mean(), 4)
                     
 
         return results

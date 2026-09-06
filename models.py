@@ -15,7 +15,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 class ECModels:
-    def __init__(self, df, df_scaled):
+    def __init__(self, df, df_scaled=None):
         self.df = df
         self.scaled = df_scaled # maybe combine the scaled df with the original df to avoid losing any data during scaling
 
