@@ -197,17 +197,20 @@ class DataEngine:
         # coefficient variation calculations
             net_wgt = subset['netwgt'] 
             qty_ratio = subset['qty_ratio'] # derived value
-            if qty_ratio.dropna().empty:
+            finite_qty_ratio = qty_ratio[np.isfinite(qty_ratio)]
+            qty_ratio_mean = finite_qty_ratio.mean()
+            if (len(finite_qty_ratio) < 2 or
+                    not np.isfinite(qty_ratio_mean) or qty_ratio_mean == 0):
                 results[f'Coefficient of Variation - Exchange Rate ({iso}): '] = None
                 print(f"Warning: Exchange rate data for {iso} is insufficient for CV calculation.")
             else:
-                var = (qty_ratio.std() / qty_ratio.mean()) * 100
+                var = (finite_qty_ratio.std() / qty_ratio_mean) * 100
                 print(f"Coefficient of Variation - Qty Ratio + Net Weight ({iso}): {var:.4f}")
                 results[f'Coefficient of Variation - Qty Ratio + Net Weight ({iso}): '] = round(var, 4)
 
             
             # elasticity calculation
-            inflation = subset['inflation']
+            inflation = subset['inflation'].replace(0, np.nan)
             qty_pct = qty_ratio.pct_change()
 
             if inflation.empty or qty_pct.empty or inflation.sum() == 0:
@@ -216,8 +219,12 @@ class DataEngine:
             else:
                 elast_final = (qty_pct / inflation).mean()
 
-                print(f"Elasticity - Quantity vs Inflation ({iso}): {elast_final:.4f}") # fix elasticity with log-log regression
-                results[f'Elasticity - Quantity vs Inflation ({iso}): '] = round(elast_final, 4)
+                if not np.isfinite(elast_final):
+                    results[f'Elasticity - Quantity vs Inflation ({iso}): '] = None
+                    print(f"Warning: Inflation data for {iso} is insufficient for elasticity calculation.")
+                else:
+                    print(f"Elasticity - Quantity vs Inflation ({iso}): {elast_final:.4f}") # fix elasticity with log-log regression
+                    results[f'Elasticity - Quantity vs Inflation ({iso}): '] = round(elast_final, 4)
             
             # Stability Ratio: Inflation : Exchange Rate
             if 'stability_ratio' in subset:
@@ -266,8 +273,8 @@ class DataEngine:
             return None
     
         # Principal Component Analysis based on briding EES gap
-        X = self.df[self.features_names]
-        Y = self.df[target_col]
+        X = valid_df[self.feature_names]
+        Y = valid_df[target_col]
         X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
 
         scaler = StandardScaler()
