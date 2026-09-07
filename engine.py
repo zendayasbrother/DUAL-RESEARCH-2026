@@ -232,16 +232,16 @@ class DataEngine:
             else:
                 print(f'Warning: Required columns for Stability Ratio calculation are missing for {iso}.')
                 results[f'Stability Ratio - Inflation : Exchange Rate ({iso})'] = (None)
-                
-            # Stability Score - hopefully derived from Stability Ratio and PCA
                     
 
         return results
     # END OF FIRST HALF 
 
- # Calculations - guided with PCA + OLS
  
+ 
+ # Calculations - guided with PCA + OLS
  # Energy Equity Score Gap (consumer spending + energy value(s) as key inds)
+ 
 class EnergyEquityScore:
     def __init__(self, df):
         self.df = df
@@ -291,7 +291,8 @@ class EnergyEquityScore:
         if self.df is None or self.df.empty or 'hfce' not in self.df.columns:
                 print("Warning: 'hfce' column missing. Skipping Energy Equity Gap analysis.")
                 return None
-            
+        
+        # Stability Score - hopefully derived from Stability Ratio and PCA
         # Built actual definitions and the actual EES driven by PCA
         # stability_ratio is used as a fallback target if stability_ratio is not available, ensuring the model can still be trained.
             
