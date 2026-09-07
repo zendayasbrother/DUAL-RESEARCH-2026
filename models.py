@@ -19,43 +19,6 @@ class ECModels:
         self.df = df
         self.scaled = df_scaled # maybe combine the scaled df with the original df to avoid losing any data during scaling
 
-    
-    def run_pca(self, n_components=2):
-        if self.df is None or self.df.empty:
-            return None
-        
-        if self.scaled is None or self.scaled.empty:
-            print("Warning: Scaled DataFrame is empty for PCA analysis.")
-            return None
-        
-        target_col = 'stability_ratio' if 'stability_ratio' in self.df.columns else 'inflation'
-        
-        # Principal Component Analysis based on briding EES gap
-        X = self.scaled[self.features]
-        Y = self.scaled[target_col]
-        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
-
-        scaler = StandardScaler()
-
-        # Fit on training data AND transform it
-        pca = PCA(n_components=n_components)
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_test_scaled = scaler.transform(X_test)
-        pca.fit(X_train_scaled)
-        
-        model = LinearRegression()
-        model.fit(X_train_scaled, Y_train)
-        
-        Y_pred = model.predict(X_test)
-        
-        pca_results = {
-            'pca_model': pca,
-            'regression_model': model,
-            'components': pca.components_,
-            'explained_variance': pca.explained_variance_ratio_ # rest of results are in the LR func
-        }
-        
-        return pca_results
         
     def run_linear_regression(self):
         if self.df is None or self.df.empty:

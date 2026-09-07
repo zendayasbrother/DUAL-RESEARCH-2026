@@ -45,8 +45,10 @@ def model_analysis(df, engine):
     gap_results = engine.energy_equity_gap()
 
     if gap_results is not None:
-        # Process symbolic regression / equity gap results
-        print("Energy Equity Gap Results:", gap_results)
+        gap_model, _ = gap_results
+        print("Energy Equity Score Formula:", gap_model['formula'])
+        print("Energy Equity Score Weights:", gap_model['weights'])
+        print(f"Energy Equity Score Validation R-Squared: {gap_model['score']:.4f}")
     else:
         print("Notice: Proceeding with remaining linear regression models without Equity Gap analysis.")
         

@@ -242,84 +242,101 @@ class DataEngine:
  # Calculations - guided with PCA + OLS
  
  # Energy Equity Score Gap (consumer spending + energy value(s) as key inds)
-    def energy_equity_gap(self, n_components=2):
-        if self.df is None or self.df.empty:
-            print("Warning: No data available. Skipping Energy Equity Score analysis.")
-            return None
-
-        if 'stability_ratio' not in self.df.columns:
-            if not {'inflation', 'exchange_rate'}.issubset(self.df.columns):
-                print("Warning: Stability inputs are missing. Skipping Energy Equity Score analysis.")
-                return None
-            exchange_rate = self.df['exchange_rate'].replace(0, np.nan)
-            self.df['stability_ratio'] = self.df['inflation'] / exchange_rate
-
-        features = ['netwgt', 'primaryvalue', 'qty', 'altqty', 'hfce']
+class EnergyEquityScore:
+    def __init__(self, df):
+        self.df = df
+        features = ['netwgt', 'inflation', 'exchange_rate', 'primaryvalue']  # Store feature names for Symbolic Regression like weighting
         active_features = [col for col in features if col in self.df.columns]
-        if not active_features:
-            print("Warning: No energy features available for Energy Equity Score analysis.")
+        target_col = 'hfce' if 'hfce' in self.df.columns else 'stability_ratio' 
+                    
+    
+    def run_pca(self, n_components=2):
+        if self.df is None or self.df.empty:
             return None
-
-        self.feature_names = active_features  # Store feature names for later use in parse_sr()
-
-        valid_df = self.df[active_features + ['stability_ratio']].replace(
-            [np.inf, -np.inf], np.nan
-        ).dropna().copy()
-        if valid_df.empty:
-            print("Warning: No valid data available for Energy Equity Score analysis.")
+        
+        if self.scaled is None or self.scaled.empty:
+            print("Warning: Scaled DataFrame is empty for PCA analysis.")
             return None
-
-        valid_df['stability_score'] = (
-            100 / (1 + valid_df['stability_ratio'].abs())
-        )
-        target_col = 'stability_score'
-
-        X = valid_df[self.feature_names]
-        Y = valid_df[target_col]
+        
+        target_col = 'stability_ratio' if 'stability_ratio' in self.df.columns else 'inflation'
+        
+        # Principal Component Analysis based on briding EES gap
+        X = self.scaled[self.features]
+        Y = self.scaled[target_col]
         X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
 
         scaler = StandardScaler()
 
         # Fit on training data AND transform it
-        component_count = min(n_components, X_train.shape[0], X_train.shape[1])
-        pca = PCA(n_components=component_count)
+        pca = PCA(n_components=n_components)
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
         pca.fit(X_train_scaled)
-        X_train_pca = pca.transform(X_train_scaled)
-        X_test_pca = pca.transform(X_test_scaled)
-
+        
         model = LinearRegression()
-        model.fit(X_train_pca, Y_train)
-        Y_pred = model.predict(X_test_pca)
+        model.fit(X_train_scaled, Y_train)
+        
+        Y_pred = model.predict(X_test)
+        
+        pca_results = {
+            'pca_model': pca,
+            'regression_model': model,
+            'components': pca.components_,
+            'explained_variance': pca.explained_variance_ratio_ # rest of results are in the LR func
+        }
+        
+        return pca_results
+    
+    def energy_equity_gap(self, n_components=2):
+        if self.df is None or self.df.empty or 'hfce' not in self.df.columns:
+                print("Warning: 'hfce' column missing. Skipping Energy Equity Gap analysis.")
+                return None
+            
+        # Built actual definitions and the actual EES driven by PCA
+        # stability_ratio is used as a fallback target if stability_ratio is not available, ensuring the model can still be trained.
+            
+        target_col = 'hfce' if 'hfce' in self.df.columns else 'stability_ratio' 
+            
+        features = ['netwgt', 'inflation', 'exchange_rate', 'primaryvalue'] # Feature engineering finding detrived HFCE backed formula
+        active_features = [col for col in features if col in self.df.columns and col != target_col]
+        self.feature_names = active_features  # Store feature names for later use in parse_sr()
+        
+        # Ensure columns exist and drop NaNs then start the ML
+        req_cols = active_features + [target_col]
+        valid_df = self.df.dropna(subset=req_cols).copy()
+        if valid_df.empty:
+            print("Warning: No valid data available for Symbolic Regression analysis.")
+            return None
+    
+        # Principal Component Analysis based on briding EES gap
+        X = self.df[self.features_names]
+        Y = self.df[target_col]
+        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
 
-        standardized_weights = pca.components_.T @ model.coef_
-        raw_weights = standardized_weights / scaler.scale_
-        raw_intercept = model.intercept_ - np.dot(raw_weights, scaler.mean_)
-        formula_terms = [sp.Float(raw_intercept, 8)]
-        formula_terms.extend(
-            sp.Float(weight, 8) * sp.Symbol(name)
-            for name, weight in zip(self.feature_names, raw_weights)
-        )
-        formula = sp.Add(*formula_terms)
+        scaler = StandardScaler()
 
+        # Fit on training data AND transform it
+        pca = PCA(n_components=n_components)
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        model = LinearRegression()
+        model.fit(X_train_scaled, Y_train)
+        
+        Y_pred = model.predict(X_test)
+        
         df_scaled = pd.DataFrame(X_test_scaled, columns=self.feature_names)
         df_scaled[target_col] = Y_test.values
-
+        
         gap_results = {
             'pca_model': pca,
             'regression_model': model,
             'components': pca.components_,
             'explained_variance': pca.explained_variance_ratio_,
-            'predictions': Y_pred,
-            'target': target_col,
-            'weights': dict(zip(self.feature_names, raw_weights)),
-            'intercept': float(raw_intercept),
-            'formula': formula,
-            'score': float(model.score(X_test_pca, Y_test)),
-        }
-
+            'predictions': Y_pred,}
+        
         return gap_results, df_scaled
+    
     
     def parse_sr(self, sr_expression):
         # Convert the symbolic regression expression to a string based sympy expression
