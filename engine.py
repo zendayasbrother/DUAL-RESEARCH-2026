@@ -174,10 +174,6 @@ class DataEngine:
             self.df['altqty'] = self.df['altqty'].replace(0, np.nan)
             self.df['qty_ratio'] = self.df['qty'] / self.df['altqty'] 
             
-        if 'inflation' in self.df.columns and 'exchange_rate' in self.df.columns:
-            self.df['stability_ratio'] = (
-            self.df['inflation'] / self.df['exchange_rate']
-        )
         
         grouped = self.df.groupby('iso')
         self.df['altqty'] = self.df['altqty'].replace(0, float('nan'))
@@ -194,20 +190,21 @@ class DataEngine:
             print(f"Spearman - Primary Value vs Exchange Rate ({iso}): {val:.4f}")
             results[f'Spearman - Primary Value vs Exchange Rate ({iso}): '] = round(val, 4)
         
-        # coefficient variation calculations
+            # unit value 
             net_wgt = subset['netwgt'] 
-            qty_ratio = subset['qty_ratio'] # derived value
-            if qty_ratio.dropna().empty:
-                results[f'Coefficient of Variation - Exchange Rate ({iso}): '] = None
-                print(f"Warning: Exchange rate data for {iso} is insufficient for CV calculation.")
+            pv = subset['primaryvalue'] # derived value
+            if pv.dropna().empty:
+                results[f'Unit Value Primary Val : Net Weight ({iso}): '] = None
+                print(f"Warning: Quantity data for {iso} is insufficient for UV calculation.")
             else:
-                var = (qty_ratio.std() / qty_ratio.mean()) * 100
-                print(f"Coefficient of Variation - Qty Ratio + Net Weight ({iso}): {var:.4f}")
+                var = (pv/ net_wgt)
+                print(f"Unit Value Primary Val : Net Weightt ({iso}): {var:.4f}")
                 results[f'Coefficient of Variation - Qty Ratio + Net Weight ({iso}): '] = round(var, 4)
 
             
             # elasticity calculation
             inflation = subset['inflation'].replace(0, np.nan)
+            qty_ratio = subset['qty_ratio'].replace(0, np.nan)
             qty_pct = qty_ratio.pct_change()
 
             if inflation.empty or qty_pct.empty or inflation.sum() == 0:
@@ -218,22 +215,8 @@ class DataEngine:
                 print(f"Elasticity - Quantity vs Inflation ({iso}): {elast_final:.4f}")
                 results[f'Elasticity - Quantity vs Inflation ({iso}): '] = round(elast_final, 4)
             
-            # Stability Ratio: Inflation : Exchange Rate
-            if 'stability_ratio' in subset:
-                iso_stability_mean = subset['stability_ratio'].mean()
-
-                if pd.notna(iso_stability_mean):
-                    print(f'Stability Ratio - Inflation : Exchange Rate ({iso}): {iso_stability_mean:.4f}')
-                    results[f'Stability Ratio - Inflation : Exchange Rate ({iso})'] = round(iso_stability_mean, 4)
-                else:
-                    print(f'Warning: Stability Ratio for {iso} contains only NaN values.'
-                    )
-                    results[f'Stability Ratio - Inflation : Exchange Rate ({iso})'] = None
-            else:
-                print(f'Warning: Required columns for Stability Ratio calculation are missing for {iso}.')
-                results[f'Stability Ratio - Inflation : Exchange Rate ({iso})'] = (None)
-                    
-
+            # Covariance Calc + Aggregate Index
+            
         return results
     # END OF FIRST HALF 
 
@@ -250,15 +233,13 @@ class EnergyEquityScore:
         target_col = 'hfce' if 'hfce' in self.df.columns else 'stability_ratio' 
                     
     
-    def run_pca(self, n_components=2):
+    def run_pca(self, n_components=2, target_col='hfce'):
         if self.df is None or self.df.empty:
             return None
         
         if self.scaled is None or self.scaled.empty:
             print("Warning: Scaled DataFrame is empty for PCA analysis.")
             return None
-        
-        target_col = 'stability_ratio' if 'stability_ratio' in self.df.columns else 'inflation'
         
         # Principal Component Analysis based on briding EES gap
         X = self.scaled[self.features]
@@ -287,7 +268,7 @@ class EnergyEquityScore:
         
         return pca_results
     
-    def energy_equity_gap(self, n_components=2):
+    def energy_equity_gap(self, n_components=2, target_col='hfce'):
         if self.df is None or self.df.empty or 'hfce' not in self.df.columns:
                 print("Warning: 'hfce' column missing. Skipping Energy Equity Gap analysis.")
                 return None
@@ -295,10 +276,9 @@ class EnergyEquityScore:
         # Stability Score - hopefully derived from Stability Ratio and PCA
         # Built actual definitions and the actual EES driven by PCA
         # stability_ratio is used as a fallback target if stability_ratio is not available, ensuring the model can still be trained.
+
             
-        target_col = 'hfce' if 'hfce' in self.df.columns else 'stability_ratio' 
-            
-        features = ['netwgt', 'inflation', 'exchange_rate', 'primaryvalue'] # Feature engineering finding detrived HFCE backed formula
+        features = features + ['netwgt', 'inflation', 'exchange_rate', 'primaryvalue'] # Feature engineering finding detrived HFCE backed formula
         active_features = [col for col in features if col in self.df.columns and col != target_col]
         self.feature_names = active_features  # Store feature names for later use in parse_sr()
         
