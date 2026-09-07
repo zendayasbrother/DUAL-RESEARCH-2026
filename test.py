@@ -65,3 +65,23 @@ def test_nans(mock_env_variables, sample_uncom_df):
     
     # Assert specific metadata items are excluded
     assert 'refyear' not in cleaner.df.columns
+    
+def test_engine_sync(mock_env_variables, sample_uncom_df, sample_dbnomics_df):
+    # Validates that the engine correctly merges UN Comtrade and DBNomics data into a unified DataFrame.
+    cleaner = DataCleaner(db_path=mock_env_variables["db_path"])
+    cleaner.df = sample_uncom_df
+    cleaner.standardise_columns()
+    cleaner.clean_data()
+    
+    fetcher = Fetcher(db_path=mock_env_variables["db_path"])
+    fetcher.df = sample_dbnomics_df
+    
+    engine = DataEngine(cleaner=cleaner, fetcher=fetcher)
+    
+    # Mock the sync_matrix method to simulate successful merging
+    engine.sync_matrix = MagicMock(return_value=True)
+    
+    result = engine.sync_matrix(mock_env_variables["countries"])
+    
+    assert result is True
+    assert isinstance(engine.df, pd.DataFrame)

@@ -41,6 +41,7 @@ class ECModels:
         pca = PCA(n_components=n_components)
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
+        pca.fit(X_train_scaled)
         
         model = LinearRegression()
         model.fit(X_train_scaled, Y_train)
