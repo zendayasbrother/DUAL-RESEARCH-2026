@@ -4,7 +4,8 @@ from datacleanse import DataCleaner, Fetcher
 import scipy.stats as stats
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
-from gplearn.genetic import SymbolicRegressor
+from sklearn.decomposition import PCA
+from sklearn.model_selection import train_test_split
 import sympy as sp
 import json
 import warnings
@@ -242,7 +243,7 @@ class DataEngine:
  # Calculations - guided with PCA + OLS
  
  # Energy Equity Score Gap (consumer spending + energy value(s) as key inds)
-    def energy_equity_gap(self):
+    def energy_equity_gap(self, n_components=2):
         
         if self.df is None or self.df.empty or 'hfce' not in self.df.columns:
             print("Warning: 'hfce' column missing. Skipping Energy Equity Gap analysis.")
@@ -253,7 +254,7 @@ class DataEngine:
         
         target_col = 'hfce' if 'hfce' in self.df.columns else 'stability_ratio' 
         
-        features = [] # Feature engineering finding detrived HFCE backed formula
+        features = ['netwgt', 'inflation', 'exchange_rate', 'primaryvalue'] # Feature engineering finding detrived HFCE backed formula
         active_features = [col for col in features if col in self.df.columns and col != target_col]
         self.feature_names = active_features  # Store feature names for later use in parse_sr()
         
@@ -263,8 +264,34 @@ class DataEngine:
         if valid_df.empty:
             print("Warning: No valid data available for Symbolic Regression analysis.")
             return None
+    
+        # Principal Component Analysis based on briding EES gap
+        X = self.df[self.features_names]
+        Y = self.df[target_col]
+        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
 
+        scaler = StandardScaler()
 
+        # Fit on training data AND transform it
+        pca = PCA(n_components=n_components)
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        model = LinearRegression()
+        model.fit(X_train_scaled, Y_train)
+        
+        Y_pred = model.predict(X_test)
+        
+        df_scaled = pd.DataFrame(X_test_scaled, columns=self.feature_names)
+        df_scaled[target_col] = Y_test.values
+        
+        gap_results = {
+            'pca_model': pca,
+            'regression_model': model,
+            'components': pca.components_,
+            'explained_variance': pca.explained_variance_ratio_,
+            'predictions': Y_pred,}
+         
         return gap_results, df_scaled
     
     def parse_sr(self, sr_expression):
@@ -294,3 +321,4 @@ class DataEngine:
         except Exception as e:
             print(f"Error parsing symbolic regression expression: {e}")
             return None
+        

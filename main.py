@@ -68,7 +68,7 @@ def run_swat():
     engine, cleaner, fetcher = result
 
     df = engine.df
-    engine, dimension, frame = model_analysis(df, engine)
+    engine, frame = model_analysis(df, engine)
 
     if not frame: 
         print("\nSWAT Fatal: Application dashboard execution halted due to model analysis failures.")
