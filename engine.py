@@ -272,14 +272,13 @@ class EnergyEquityScore:
         
         return pca_results
     
-    def energy_equity_gap(self, n_components=2, target_col='hfce'):
+    def energy_equity_gap(self, n_components=2):
         if self.df is None or self.df.empty or 'hfce' not in self.df.columns:
                 print("Warning: 'hfce' column missing. Skipping Energy Equity Gap analysis.")
                 return None
         
         # Standardize the data for PCA and create the Energy Equity Score + Gap based on metrics above
-        
-        return gap_results, df_scaled
+        # return gap_results, df_scaled
     
     
     def parse_sr(self, sr_expression):

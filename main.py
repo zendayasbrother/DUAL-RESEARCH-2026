@@ -40,27 +40,20 @@ def trilateral_analysis():
         return False
 
 def model_analysis(df, engine):
-    models = ECModels(df)
     
+    print("\nCommencing model analysis...")
+    equity = ECModels(df)
+    models = ECModels(df, df_scaled=engine.df_scaled_)
     gap_results = engine.energy_equity_gap()
-
-    if gap_results is not None:
-        gap_model, _ = gap_results
-        print("Energy Equity Score Formula:", gap_model['formula'])
-        print("Energy Equity Score Weights:", gap_model['weights'])
-        print(f"Energy Equity Score Validation R-Squared: {gap_model['score']:.4f}")
-    else:
-        print("Notice: Proceeding with remaining linear regression models without Equity Gap analysis.")
         
-    # Execute the linear regression model to generate the 'frame' data
-    dimension = models.run_pca()
-    frame = models.run_linear_regression()
+    # Run PCA to reduce dimensions and extract the most significant features
+    dimension = equity.run_pca()
+    frame = models.run_linear_regression()  # Execute the linear regression model to generate the 'frame' data
     return engine, dimension, frame
 
 def run_swat():
     
     print("\nHello, and welcome to SWAT: a computational demonstration of the trilateral relationship of China, Nigeria, and Ghana.")
-    
     result = trilateral_analysis()
     if not result:
         print("\nSWAT Fatal: Application dashboard execution halted due to engine synchronization failures.")
