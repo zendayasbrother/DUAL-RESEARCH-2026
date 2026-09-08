@@ -230,42 +230,50 @@ class DataEngine:
 class EnergyEquityScore:
     def __init__(self, df):
         self.df = df
-        self.features = ['netwgt', 'inflation', 'exchange_rate', 'primaryvalue', 'qty_ratio', 'unit_val']  # Store feature names for Symbolic Regression like weighting
+        self.features = ['netwgt', 'inflation', 'exchange_rate', 'primaryvalue', 'qty_ratio', 'unit_value']  # Store feature names for Symbolic Regression like weighting
         self.feature_names = [col for col in self.features if col in self.df.columns]
         self.scaled = None
+        target_col = None
                     
     
     def run_pca(self, n_components=2, target_col='hfce'):
         if self.df is None or self.df.empty:
             return None
         
-        if self.scaled is None or self.scaled.empty:
-            print("Warning: Scaled DataFrame is empty for PCA analysis.")
+        active_features = [col for col in self.features if col in self.df.columns] # = feature_names
+        
+        if not active_features:
+            print("Warning: No valid PCA features found.")
+            return None
+
+        # Require target
+        if target_col not in self.df.columns:
+            print(f"Warning: Target '{target_col}' missing.")
+            return None
+        
+        req_cols = active_features + [target_col]
+        valid_df = self.df.dropna(subset=req_cols).copy()
+
+        if valid_df.empty:
+            print("Warning: No valid rows available for PCA.")
             return None
         
         # Principal Component Analysis based on briding EES gap
-        X = self.scaled[self.features]
-        Y = self.scaled[target_col]
+        X = self.df[active_features]
+        Y = self.df[target_col]
         X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
 
+        # Standardize the data for PCA
         scaler = StandardScaler()
-
+        X_scaled = scaler.fit_transform(X)
+        scaled = pd.DataFrame(X_scaled, columns=active_features, index=valid_df.index)
+        
         # Fit on training data AND transform it
         pca = PCA(n_components=n_components)
-        X_train_pca = pca.transform(X_train_scaled)
-        X_test_pca = pca.transform(X_test_scaled)
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_test_scaled = scaler.transform(X_test)
-        pca.fit(X_train_scaled)
-        
-        model = LinearRegression()
-        model.fit(X_train_scaled, Y_train)
-        
-        Y_pred = model.predict(X_test_scaled)
+        X_pca = pca.fit_transform(X_scaled)
         
         pca_results = {
             'pca_model': pca,
-            'regression_model': model,
             'components': pca.components_,
             'explained_variance': pca.explained_variance_ratio_ # rest of results are in the LR func
         }
@@ -277,7 +285,7 @@ class EnergyEquityScore:
                 print("Warning: 'hfce' column missing. Skipping Energy Equity Gap analysis.")
                 return None
         
-        # Standardize the data for PCA and create the Energy Equity Score + Gap based on metrics above
+        # create the Energy Equity Score + Gap based on metrics above
         # return gap_results, df_scaled
     
     
