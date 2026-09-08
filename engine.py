@@ -173,11 +173,10 @@ class DataEngine:
         if 'altqty' in self.df.columns and 'qty' in self.df.columns:
             self.df['altqty'] = self.df['altqty'].replace(0, np.nan)
             self.df['qty_ratio'] = self.df['qty'] / self.df['altqty'] 
-            
         
         grouped = self.df.groupby('iso')
         self.df['altqty'] = self.df['altqty'].replace(0, float('nan'))
-        self.df['qty_ratio'] = self.df['qty'] / self.df['altqty']
+        self.df['unit_value'] = (self.df['primaryvalue'] / self.df['netwgt'].replace(0, np.nan))    
         results = {} 
         print("\n--- SPEARMAN CORRELATION & VARIATION TESTS---")
 
@@ -193,17 +192,18 @@ class DataEngine:
             # unit value 
             net_wgt = subset['netwgt'] 
             pv = subset['primaryvalue'] # derived value
-            if pv.dropna().empty:
+            if pv.dropna().empty or net_wgt.sum() == 0:
                 results[f'Unit Value Primary Val : Net Weight ({iso}): '] = None
-                print(f"Warning: Quantity data for {iso} is insufficient for UV calculation.")
+                print(f"Warning: Data for {iso} is insufficient for UV calculation.")
             else:
-                var = (pv/ net_wgt)
-                print(f"Unit Value Primary Val : Net Weightt ({iso}): {var:.4f}")
-                results[f'Coefficient of Variation - Qty Ratio + Net Weight ({iso}): '] = round(var, 4)
+                unit_val = subset['unit_value'].replace(0, np.nan)
+                print(f"Unit Value Primary Val : Net Weight ({iso}): {unit_val.mean():.4f}")
+                results[f'Unit Value Primary Val : Net Weight ({iso}): '] = round(unit_val.mean(), 4)
 
             
             # elasticity calculation
             inflation = subset['inflation'].replace(0, np.nan)
+            inflation_dec = inflation / 100
             qty_ratio = subset['qty_ratio'].replace(0, np.nan)
             qty_pct = qty_ratio.pct_change()
 
@@ -211,11 +211,13 @@ class DataEngine:
                 results[f'Elasticity - Quantity vs Inflation ({iso}): '] = None
                 print(f"Warning: Inflation data for {iso} is insufficient for elasticity calculation.")
             else:
-                elast_final = (qty_pct / inflation).mean()
+                elast_final = (qty_pct / inflation_dec).mean()
                 print(f"Elasticity - Quantity vs Inflation ({iso}): {elast_final:.4f}")
                 results[f'Elasticity - Quantity vs Inflation ({iso}): '] = round(elast_final, 4)
             
-            # Covariance Calc + Aggregate Index
+            # Covariance
+            pass
+            
             
         return results
     # END OF FIRST HALF 
@@ -228,9 +230,9 @@ class DataEngine:
 class EnergyEquityScore:
     def __init__(self, df):
         self.df = df
-        features = ['netwgt', 'inflation', 'exchange_rate', 'primaryvalue']  # Store feature names for Symbolic Regression like weighting
-        active_features = [col for col in features if col in self.df.columns]
-        target_col = 'hfce' if 'hfce' in self.df.columns else 'stability_ratio' 
+        self.features = ['netwgt', 'inflation', 'exchange_rate', 'primaryvalue', 'qty_ratio', 'unit_val']  # Store feature names for Symbolic Regression like weighting
+        self.feature_names = [col for col in self.features if col in self.df.columns]
+        self.scaled = None
                     
     
     def run_pca(self, n_components=2, target_col='hfce'):
@@ -250,6 +252,8 @@ class EnergyEquityScore:
 
         # Fit on training data AND transform it
         pca = PCA(n_components=n_components)
+        X_train_pca = pca.transform(X_train_scaled)
+        X_test_pca = pca.transform(X_test_scaled)
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
         pca.fit(X_train_scaled)
@@ -257,7 +261,7 @@ class EnergyEquityScore:
         model = LinearRegression()
         model.fit(X_train_scaled, Y_train)
         
-        Y_pred = model.predict(X_test)
+        Y_pred = model.predict(X_test_scaled)
         
         pca_results = {
             'pca_model': pca,
@@ -273,48 +277,7 @@ class EnergyEquityScore:
                 print("Warning: 'hfce' column missing. Skipping Energy Equity Gap analysis.")
                 return None
         
-        # Stability Score - hopefully derived from Stability Ratio and PCA
-        # Built actual definitions and the actual EES driven by PCA
-        # stability_ratio is used as a fallback target if stability_ratio is not available, ensuring the model can still be trained.
-
-            
-        features = features + ['netwgt', 'inflation', 'exchange_rate', 'primaryvalue'] # Feature engineering finding detrived HFCE backed formula
-        active_features = [col for col in features if col in self.df.columns and col != target_col]
-        self.feature_names = active_features  # Store feature names for later use in parse_sr()
-        
-        # Ensure columns exist and drop NaNs then start the ML
-        req_cols = active_features + [target_col]
-        valid_df = self.df.dropna(subset=req_cols).copy()
-        if valid_df.empty:
-            print("Warning: No valid data available for Symbolic Regression analysis.")
-            return None
-    
-        # Principal Component Analysis based on briding EES gap
-        X = self.df[self.features_names]
-        Y = self.df[target_col]
-        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
-
-        scaler = StandardScaler()
-
-        # Fit on training data AND transform it
-        pca = PCA(n_components=n_components)
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_test_scaled = scaler.transform(X_test)
-        
-        model = LinearRegression()
-        model.fit(X_train_scaled, Y_train)
-        
-        Y_pred = model.predict(X_test)
-        
-        df_scaled = pd.DataFrame(X_test_scaled, columns=self.feature_names)
-        df_scaled[target_col] = Y_test.values
-        
-        gap_results = {
-            'pca_model': pca,
-            'regression_model': model,
-            'components': pca.components_,
-            'explained_variance': pca.explained_variance_ratio_,
-            'predictions': Y_pred,}
+        # Standardize the data for PCA and create the Energy Equity Score + Gap based on metrics above
         
         return gap_results, df_scaled
     
