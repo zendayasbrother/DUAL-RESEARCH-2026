@@ -77,7 +77,7 @@ class ECModels:
         }
         
     def run_forecasting(self):
-        pass # Placeholder for ARIMA, SARIMA, Prophet, etc.
+        pass # Placeholder for ARIMA, SARIMA, Prophet, etc. | train-test split
     
     def run_game_theory(self):
         pass # Placeholder for Stackelberg / Game Theory models

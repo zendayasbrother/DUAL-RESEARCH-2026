@@ -259,9 +259,8 @@ class EnergyEquityScore:
             return None
         
         # Principal Component Analysis based on briding EES gap
-        X = self.df[active_features]
-        Y = self.df[target_col]
-        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
+        X = valid_df[active_features]
+        Y = valid_df[target_col]
 
         # Standardize the data for PCA
         scaler = StandardScaler()
@@ -272,20 +271,36 @@ class EnergyEquityScore:
         pca = PCA(n_components=n_components)
         X_pca = pca.fit_transform(X_scaled)
         
+        loadings = pd.DataFrame(
+        pca.components_.T,
+        index=active_features,
+        columns=[f'PC{i + 1}' for i in range(n_components)])
+
+        print("\n--- PCA LOADINGS ---")
+        print(loadings)
+
+        print("\n--- EXPLAINED VARIANCE ---")
+        for i, variance in enumerate(pca.explained_variance_ratio_):
+            print(f"PC{i + 1}: {variance:.4f} " f"({variance * 100:.2f}%)")
+            
         pca_results = {
-            'pca_model': pca,
-            'components': pca.components_,
-            'explained_variance': pca.explained_variance_ratio_ # rest of results are in the LR func
-        }
+        'pca_model': pca,
+        'scaler': scaler,
+        'scaled_data': scaled,
+        'pca_scores': X_pca,
+        'loadings': loadings,
+        'explained_variance': pca.explained_variance_ratio_,
+        'feature_names': active_features }
+
+        return pca_results, scaled
         
-        return pca_results
     
     def energy_equity_gap(self, n_components=2):
         if self.df is None or self.df.empty or 'hfce' not in self.df.columns:
                 print("Warning: 'hfce' column missing. Skipping Energy Equity Gap analysis.")
                 return None
         
-        # create the Energy Equity Score + Gap based on metrics above
+        # create the Energy Equity Score + Gap based on metrics above | respective Elec. and Solar sccores
         # return gap_results, df_scaled
     
     
