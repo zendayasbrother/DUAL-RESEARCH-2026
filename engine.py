@@ -201,20 +201,34 @@ class DataEngine:
                 results[f'Unit Value Primary Val : Net Weight ({iso}): '] = round(unit_val.mean(), 4)
 
             
-            # elasticity calculation
+            # elasticity calculation | hybrid log log regression + division method
             inflation = subset['inflation'].replace(0, np.nan)
             inflation_dec = inflation / 100
             qty_ratio = subset['qty_ratio'].replace(0, np.nan)
             qty_pct = qty_ratio.pct_change()
-
+            
+            valid_data = pd.concat([qty_pct, inflation_dec], axis=1).dropna()
             if inflation.empty or qty_pct.empty or inflation.sum() == 0:
                 results[f'Elasticity - Quantity vs Inflation ({iso}): '] = None
-                print(f"Warning: Inflation data for {iso} is insufficient for elasticity calculation.")
+                print(f"Warning: Data for {iso} is insufficient for elasticity calculation.")
+            
+
+            if valid_data.empty or len(valid_data) < 2:
+                results[f'Elasticity - Quantity vs Inflation ({iso}): '] = None
+                print(f"Warning: Elasticity data for {iso} is insufficient for elasticity calculation.")
             else:
-                elast_final = (qty_pct / inflation_dec).mean()
+                elast_div = (qty_pct / inflation_dec).mean()
+                
+                log_inf = np.log(valid_data['inflation'])
+                log_qty = np.log(valid_data['qty_ratio'])
+                var_inf = np.var(log_inf, ddof=1)
+                
+                elast_loglog = (np.cov(log_inf, log_qty)[0, 1] / var_inf) if var_inf != 0 else elast_div
+
+                # Hybrid blend (Mean of Division and Log-Log Elasticity)
+                elast_final = (elast_div + elast_loglog) / 2
                 print(f"Elasticity - Quantity vs Inflation ({iso}): {elast_final:.4f}")
                 results[f'Elasticity - Quantity vs Inflation ({iso}): '] = round(elast_final, 4)
-            
             # Covariance
             pass
             
