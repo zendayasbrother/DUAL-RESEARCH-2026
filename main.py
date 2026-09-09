@@ -47,10 +47,10 @@ def model_analysis(df, engine):
     gap_results = equity.energy_equity_gap()
     clean_df = engine.meta_clean()
     
-    models = ECModels(clean_df, scaled=engine.scaled)
-    
     # Run PCA to reduce dimensions and extract the most significant features
     dimension = equity.run_pca()
+    
+    models = ECModels(clean_df, scaled=engine.scaled)
     frame = models.run_linear_regression()  # Execute the linear regression model to generate the 'frame' data
     return engine, dimension, frame
 
