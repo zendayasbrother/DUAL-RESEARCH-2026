@@ -301,7 +301,7 @@ class EnergyEquityScore:
                 return None
         
         # create the Energy Equity Score + Gap based on metrics above | respective Elec. and Solar sccores
-        # return gap_results, df_scaled
+        # return gap_results, scaled
     
     
     def parse_sr(self, sr_expression):

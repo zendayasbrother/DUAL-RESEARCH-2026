@@ -5,6 +5,7 @@ from datacleanse import DataCleaner, Fetcher
 from dotenv import load_dotenv
 from engine import DataEngine
 from models import ECModels
+from config import COUNTRY_ISO_MAP
 
 base_path = Path(__file__).resolve().parent
 env_path = base_path / ".env"
@@ -16,7 +17,7 @@ def trilateral_analysis():
     api_url = os.environ.get("UNCOM_URL")
     api_key = os.environ.get("UNCOM_KEY")
     db_path = os.environ.get("DB_PATH")
-    countries = [288, 566, 156]
+    countries = COUNTRY_ISO_MAP
 
     print(f"DEBUG: URL found: {api_url is not None}")
     print(f"DEBUG: KEY found: {api_key is not None}")
