@@ -213,22 +213,18 @@ class DataEngine:
                 print(f"Warning: Data for {iso} is insufficient for elasticity calculation.")
             
 
-            if valid_data.empty or len(valid_data) < 2:
-                results[f'Elasticity - Quantity vs Inflation ({iso}): '] = None
-                print(f"Warning: Elasticity data for {iso} is insufficient for elasticity calculation.")
-            else:
-                elast_div = (qty_pct / inflation_dec).mean()
-                
+            if valid_data.empty or len(valid_data) >= 3:
                 log_inf = np.log(valid_data['inflation'])
                 log_qty = np.log(valid_data['qty_ratio'])
-                var_inf = np.var(log_inf, ddof=1)
+                X = stats.add_constant(log_inf)
+                model = stats.OLS(log_qty, X).fit()
                 
-                elast_loglog = (np.cov(log_inf, log_qty)[0, 1] / var_inf) if var_inf != 0 else elast_div
-
-                # Hybrid blend (Mean of Division and Log-Log Elasticity)
-                elast_final = (elast_div + elast_loglog) / 2
-                print(f"Elasticity - Quantity vs Inflation ({iso}): {elast_final:.4f}")
-                results[f'Elasticity - Quantity vs Inflation ({iso}): '] = round(elast_final, 4)
+                elast = model.params['inflation']
+                residuals = model.resid
+                print(f"Elasticity - Quantity vs Inflation ({iso}): {elast:.4f}")
+                print(f"Residuals: {residuals.describe()}")
+                results[f'Elasticity - Quantity vs Inflation ({iso}): '] = round(elast, 4)
+                results[f'Residuals - Quantity vs Inflation ({iso}): '] = residuals.tolist()
             # Covariance
             pass
             
