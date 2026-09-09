@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from datacleanse import DataCleaner, Fetcher
 import scipy.stats as stats
+import statsmodels.api as sm
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
@@ -216,8 +217,8 @@ class DataEngine:
             if valid_data.empty or len(valid_data) >= 3:
                 log_inf = np.log(valid_data['inflation'])
                 log_qty = np.log(valid_data['qty_ratio'])
-                X = stats.add_constant(log_inf)
-                model = stats.OLS(log_qty, X).fit()
+                X = sm.add_constant(log_inf)
+                model = sm.OLS(log_qty, X).fit()
                 
                 elast = model.params['inflation']
                 residuals = model.resid
