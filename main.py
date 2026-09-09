@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 from datacleanse import DataCleaner, Fetcher
 from dotenv import load_dotenv
-from engine import DataEngine
+from engine import DataEngine, EnergyEquityScore
 from models import ECModels
 from config import COUNTRY_ISO_MAP
 
@@ -43,10 +43,12 @@ def trilateral_analysis():
 def model_analysis(df, engine):
     
     print("\nCommencing model analysis...")
-    equity = ECModels(df)
-    models = ECModels(df, df_scaled=engine.df_scaled_)
-    gap_results = engine.energy_equity_gap()
-        
+    equity = EnergyEquityScore(df)
+    gap_results = equity.energy_equity_gap()
+    clean_df = engine.meta_clean()
+    
+    models = ECModels(clean_df, scaled=engine.scaled)
+    
     # Run PCA to reduce dimensions and extract the most significant features
     dimension = equity.run_pca()
     frame = models.run_linear_regression()  # Execute the linear regression model to generate the 'frame' data

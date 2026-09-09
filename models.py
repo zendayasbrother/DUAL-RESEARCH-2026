@@ -27,7 +27,7 @@ class ECModels:
 
         # Force conversion of all columns to numeric to avoid data type mismatch bugs
         
-        clean_df = self.meta_clean()
+        clean_df = self.df.copy()
         
         numeric = clean_df.apply(pd.to_numeric, errors='coerce')
         numeric = numeric.select_dtypes(include=[np.number]).replace([np.inf, -np.inf], np.nan)
