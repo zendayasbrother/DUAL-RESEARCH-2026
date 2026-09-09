@@ -6,7 +6,6 @@ import statsmodels.api as sm
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-from sklearn.model_selection import train_test_split
 import sympy as sp
 import json
 import warnings
@@ -204,28 +203,26 @@ class DataEngine:
             
             # elasticity calculation | hybrid log log regression + division method
             inflation = subset['inflation'].replace(0, np.nan)
-            inflation_dec = inflation / 100
             qty_ratio = subset['qty_ratio'].replace(0, np.nan)
-            qty_pct = qty_ratio.pct_change()
             
-            valid_data = pd.concat([qty_pct, inflation_dec], axis=1).dropna()
-            if inflation.empty or qty_pct.empty or inflation.sum() == 0:
+            valid_data = pd.concat([qty_ratio, inflation], axis=1).dropna()
+            if inflation.empty or valid_data.empty or inflation.sum() == 0:
                 results[f'Elasticity - Quantity vs Inflation ({iso}): '] = None
                 print(f"Warning: Data for {iso} is insufficient for elasticity calculation.")
             
-
-            if valid_data.empty or len(valid_data) >= 3:
+            if len(valid_data) >= 3:
                 log_inf = np.log(valid_data['inflation'])
                 log_qty = np.log(valid_data['qty_ratio'])
                 X = sm.add_constant(log_inf)
                 model = sm.OLS(log_qty, X).fit()
                 
                 elast = model.params['inflation']
-                residuals = model.resid
+                residuals = model.resid # residuals are like the standard deviation relative to the elasticity relationship
                 print(f"Elasticity - Quantity vs Inflation ({iso}): {elast:.4f}")
                 print(f"Residuals: {residuals.describe()}")
                 results[f'Elasticity - Quantity vs Inflation ({iso}): '] = round(elast, 4)
                 results[f'Residuals - Quantity vs Inflation ({iso}): '] = residuals.tolist()
+            
             # Covariance
             pass
             
@@ -342,4 +339,6 @@ class EnergyEquityScore:
         except Exception as e:
             print(f"Error parsing symbolic regression expression: {e}")
             return None
-        
+    
+    def json_dc(self): 
+        return { }
