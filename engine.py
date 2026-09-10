@@ -172,7 +172,7 @@ class DataEngine:
         
         if 'altqty' in self.df.columns and 'qty' in self.df.columns:
             self.df['altqty'] = self.df['altqty'].replace(0, np.nan)
-            self.df['qty_ratio'] = self.df['qty'] / self.df['altqty'] 
+            self.df['qty_ratio'] = self.df['qty'] / self.df['altqty'] # unit based calculation for elasticicity
         
         grouped = self.df.groupby('iso')
         self.df['altqty'] = self.df['altqty'].replace(0, float('nan'))
@@ -238,7 +238,7 @@ class DataEngine:
 class EnergyEquityScore:
     def __init__(self, df):
         self.df = df
-        self.features = ['netwgt', 'inflation', 'exchange_rate', 'primaryvalue', 'qty_ratio', 'unit_value']  # Store feature names for Symbolic Regression like weighting
+        self.features = [np.log(1 + df['netwgt']), 'inflation', 'exchange_rate', np.log(1 + df['primaryvalue'])] # Store feature names for Symbolic Regression reminiscent weighting
         self.feature_names = [col for col in self.features if col in self.df.columns]
         self.scaled = None
         target_col = None
